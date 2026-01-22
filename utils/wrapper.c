@@ -1,8 +1,8 @@
 #define _GNU_SOURCE
-#include <stdio.h>
 #include <stdlib.h>
 #include <dlfcn.h>
 #include <string.h>
+#include <unistd.h>
 
 // Function pointers to the real malloc/free
 static void* (*real_malloc)(size_t) = NULL;
@@ -33,7 +33,9 @@ void* malloc(size_t size) {
         void* ptr = &bootstrap_buffer[bootstrap_offset];
         bootstrap_offset += size;
         if (bootstrap_offset >= BOOTSTRAP_SIZE) {
-            fprintf(stderr, "Bootstrap buffer overflow!\n");
+            // char buf[64];
+            // int len = snprintf(buf, sizeof(buf), "Bootstrap buffer overflow!\n");
+            // if (len > 0) write(STDERR_FILENO, buf, (size_t)len);
             return NULL;
         }
         return ptr;
@@ -41,7 +43,9 @@ void* malloc(size_t size) {
     
     init_hooks();
     void* ptr = real_malloc(size);
-    // fprintf(stdout, "[ALLOC] size=%zu, ptr=%p\n", size, ptr);
+    // char buf[128];
+    // int len = snprintf(buf, sizeof(buf), "[ALLOC] size=%zu, ptr=%p\n", size, ptr);
+    // if (len > 0) write(STDERR_FILENO, buf, (size_t)len);
     return ptr;
 }
 
@@ -54,7 +58,9 @@ void* calloc(size_t nmemb, size_t size) {
         memset(ptr, 0, total);
         bootstrap_offset += total;
         if (bootstrap_offset >= BOOTSTRAP_SIZE) {
-            fprintf(stderr, "Bootstrap buffer overflow!\n");
+            // char buf[64];
+            // int len = snprintf(buf, sizeof(buf), "Bootstrap buffer overflow!\n");
+            // if (len > 0) write(STDERR_FILENO, buf, (size_t)len);
             return NULL;
         }
         return ptr;
@@ -62,7 +68,9 @@ void* calloc(size_t nmemb, size_t size) {
     
     init_hooks();
     void* ptr = real_calloc(nmemb, size);
-    // fprintf(stderr, "[CALLOC] nmemb=%zu, size=%zu, ptr=%p\n", nmemb, size, ptr);
+    // char buf[128];
+    // int len = snprintf(buf, sizeof(buf), "[CALLOC] nmemb=%zu, size=%zu, ptr=%p\n", nmemb, size, ptr);
+    // if (len > 0) write(STDERR_FILENO, buf, (size_t)len);
     return ptr;
 }
 
@@ -75,6 +83,8 @@ void free(void* ptr) {
     }
     
     init_hooks();
-    // fprintf(stderr, "[FREE] ptr=%p\n", ptr);
+    // char buf[64];
+    // int len = snprintf(buf, sizeof(buf), "[FREE] ptr=%p\n", ptr);
+    // if (len > 0) write(STDERR_FILENO, buf, (size_t)len);
     real_free(ptr);
 }
