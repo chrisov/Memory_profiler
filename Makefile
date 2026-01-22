@@ -26,9 +26,20 @@ $(OBJDIR):
 
 all: $(NAME)
 
+wrapper: tests/tests.c
+	gcc -shared -fPIC -o tests/wrapper.so utils/wrapper.c -ldl
+	gcc -o tests/tests tests/tests.c
+
+run_tests:
+	./tests/tests
+
+run_tests_with_wrapper: wrapper
+	LD_PRELOAD=./tests/wrapper.so ./tests/tests
+
 clean:
 		rm -f $(OBJDIR)/*.o
 		rm -rf $(OBJDIR)
+		rm -f tests/wrapper.so
 
 fclean: clean
 		@printf "[.]   🧹 Removing '\033[33m$(NAME)\033[0m' build...\r"
