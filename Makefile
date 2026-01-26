@@ -7,7 +7,7 @@ MAKEFLAGS += -s
 INCDIR = ./inc
 SRCDIR = ./src
 OBJDIR = ./obj
-SRCS = $(SRCDIR)/main.c
+SRCS = $(SRCDIR)/main.c $(SRCDIR)/init.c
 
 OBJS = $(SRCS:$(SRCDIR)/%.cpp=$(OBJDIR)/%.o)
 
@@ -43,6 +43,6 @@ fclean: clean
 		rm -f $(NAME)
 		printf "[✅]  🧹 Removed '\033[33m$(NAME)\033[0m' build...  \n"
 
-re: fclean all
+re: fclean wrapper all
 
-.PHONY: all clean fclean re
+.PHONY: all wrapper tests clean fclean re
