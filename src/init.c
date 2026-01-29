@@ -1,5 +1,10 @@
 #include "../inc/profiler.h"
 
+/**
+ * @brief Creates a new pipe and forks a new display process.
+ * 
+ * @return The child process's pid.
+ */
 pid_t	init_display_process(void) {
 	// Create named pipe for display
 	unlink("/tmp/memprof_pipe");
@@ -14,12 +19,15 @@ pid_t	init_display_process(void) {
 				"echo 'Memory Profiler Display'; cat /tmp/memprof_pipe; echo ''; echo 'Press Enter to exit...'; read dummy </dev/tty", NULL);
 		_exit(1);
 	}
-
-	// Wait for display terminal to start
 	sleep(1);
 	return (display_pid);
 }
 
+/**
+ * @brief Initializes the pipe, opens it and sets it as non blocking.
+ * 
+ * @return The pipe's fd.
+ */
 int	init_pipe(void) {
 	// Open display pipe
 	int pipe_fd = open("/tmp/memprof_pipe", O_WRONLY | O_NONBLOCK);
@@ -33,6 +41,13 @@ int	init_pipe(void) {
 	return (pipe_fd);
 }
 
+/**
+ * @brief Initializes the pipe and executes the binary in a child process.
+ * 
+ * @param argv The binary to be executed, as environmental variable.
+ * 
+ * @return The child process's pid.
+ */
 pid_t	init_binary_process(char *argv[]) {
 	pid_t test_pid = fork();
 	if (test_pid == 0) {
@@ -46,6 +61,15 @@ pid_t	init_binary_process(char *argv[]) {
 	return (test_pid);
 }
 
+/**
+ * @brief Initializes and executes the visualizer, handles the communication between
+ * it and the binary process.
+ * 
+ * @param argv The binary's name.
+ * @param display_pid The pid of the visualizer process.
+ * @param binary_pid The pid of the binary process.
+ * @param pipe_fd The fd of the communication pipe between the two processes.
+ */
 void	init_parent_process(char* argv, pid_t display_pid, pid_t binary_pid, int pipe_fd) {
 	char buf[256];
 	int len = snprintf(buf, sizeof(buf), "Executing '%s' (PID %d)\n", argv, binary_pid);
@@ -56,8 +80,7 @@ void	init_parent_process(char* argv, pid_t display_pid, pid_t binary_pid, int pi
 	int status;
 	waitpid(binary_pid, &status, 0);
 	
-	len = snprintf(buf, sizeof(buf), "\nTest program exited with status %d\n", 
-				   WIFEXITED(status) ? WEXITSTATUS(status) : -1);
+	len = snprintf(buf, sizeof(buf), "\nTest program exited with status %d\n", WIFEXITED(status) ? WEXITSTATUS(status) : -1);
 	if (pipe_fd >= 0)
 		write(pipe_fd, buf, len);
 

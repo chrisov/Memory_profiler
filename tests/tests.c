@@ -3,12 +3,13 @@
 #include <string.h>
 #include <malloc.h>
 #include <unistd.h>
+#include "../inc/profiler.h"
 
 int	main(void) {
-	void	*p1;
-	void	*p2;
-	void	*p3;
-	void	*p4;
+	void	*p1 = NULL;
+	void	*p2 = NULL;
+	void	*p3 = NULL;
+	void	*p4 = NULL;
 
 	printf("================== Test 1 ==================");
 	printf("\nSimple tracking of consecutive memory chunks.\n");
@@ -21,7 +22,7 @@ int	main(void) {
 		// exec(clear);
 
 		// Minimum memory chunk in 64-bit architectures: 32 bytes
-		p1 = malloc(SIZE1);
+		TRACK_ASSIGN(p1, malloc(SIZE1));
 		printf("\n---- Minimum chunk size ----\n");
 		printf("Pointer p1: %p\n", p1);
 		printf("Requested chunk size: %d\n", SIZE1);
@@ -36,7 +37,7 @@ int	main(void) {
 		printf("'\n");
 		
 		// Can write more than 10 bytes, because of 16-byte alignment
-		p2 = malloc(SIZE2);
+		TRACK_ASSIGN(p2, malloc(SIZE2));
 		printf("\n---- 16-byte alignment ----\n");
 		printf("Pointer p2: %p\n", p2);
 		printf("Requested chunk size: %d\n", SIZE2);
@@ -52,7 +53,7 @@ int	main(void) {
 		
 		// Writing beyond the chunk's size will result messing with the next chunk's metadata
 		// and abort the allocation entirely.
-		p3 = malloc(SIZE3);
+		TRACK_ASSIGN(p3, malloc(SIZE3));
 		printf("\n---- Exact alignment with memory chunk ----\n");
 		printf("Pointer p3: %p\n", p3);
 		printf("Requested chunk size: %d\n", SIZE3);
@@ -67,7 +68,7 @@ int	main(void) {
 		printf("'\n");
 
 		// Allocated chunk with no user data
-		p4 = malloc(SIZE4);
+		TRACK_ASSIGN(p4, malloc(SIZE4));
 
 		free(p1);
 		free(p2);

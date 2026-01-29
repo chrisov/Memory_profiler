@@ -17,18 +17,32 @@ static void* (*real_calloc)(size_t, size_t) = NULL;
 static char bootstrap_buffer[BOOTSTRAP_SIZE];
 static size_t bootstrap_offset = 0;
 static int initializing = 0;
-
 static int profiler_fd = -1;
+static int in_wrapper = 0;  // Prevent recursive wrapping
 
 static void send_alloc_event(const char* msg, size_t len) {
     if (profiler_fd < 0) {
         const char* pipe_path = getenv("MEMPROF_PIPE");
-        if (pipe_path) {
-            profiler_fd = open(pipe_path, O_WRONLY | O_NONBLOCK);
-        }
+        profiler_fd = open(pipe_path, O_WRONLY | O_NONBLOCK);
     }
     if (profiler_fd >= 0) {
         write(profiler_fd, msg, len);
+    }
+}
+
+// Track variable assignments
+void send_assignment_event(const char* var_name, const void* var_ptr, const char* var_type) {
+    if (profiler_fd < 0) {
+        const char* pipe_path = getenv("MEMPROF_PIPE");
+        if (pipe_path)
+            profiler_fd = open(pipe_path, O_WRONLY | O_NONBLOCK);
+    }
+    if (profiler_fd >= 0) {
+        char buf[256];
+        int len = snprintf(buf, sizeof(buf), "[ASSIGN] var=%s type=%s ptr=%p\n", 
+            var_name, var_type, var_ptr);
+        if (len > 0)
+            write(profiler_fd, buf, (size_t)len);
     }
 }
 
@@ -46,6 +60,13 @@ static void init_hooks(void) {
 
 // Wrap malloc
 void* malloc(size_t size) {
+    if (in_wrapper) {
+        // Prevent double wrapping - call real malloc directly
+        init_hooks();
+        return real_malloc ? real_malloc(size) : NULL;
+    }
+    in_wrapper = 1;
+    
     // During initialization, use bootstrap buffer
     if (initializing) {
         void* ptr = &bootstrap_buffer[bootstrap_offset];
@@ -69,12 +90,18 @@ void* malloc(size_t size) {
     int len = snprintf(buf, sizeof(buf), "[ALLOC] size=%zu usable=%zu ptr=%p\n", size, usable, ptr);
     if (len > 0)
         send_alloc_event(buf, (size_t)len);
-    
+    in_wrapper = 0;
     return ptr;
 }
 
 // Wrap calloc (dlsym uses calloc internally)
 void* calloc(size_t nmemb, size_t size) {
+    if (in_wrapper) {
+        init_hooks();
+        return real_calloc ? real_calloc(nmemb, size) : NULL;
+    }
+    in_wrapper = 1;
+    
     // During initialization, use bootstrap buffer
     if (initializing) {
         void* ptr = &bootstrap_buffer[bootstrap_offset];
@@ -99,12 +126,19 @@ void* calloc(size_t nmemb, size_t size) {
     int len = snprintf(buf, sizeof(buf), "[CALLOC] nmemb=%zu size=%zu usable=%zu ptr=%p\n", nmemb, size, usable, ptr);
     if (len > 0)
         send_alloc_event(buf, (size_t)len);
-    
+    in_wrapper = 0;
     return ptr;
 }
 
 // Wrap free
 void free(void* ptr) {
+    if (in_wrapper) {
+        init_hooks();
+        if (real_free) real_free(ptr);
+        return;
+    }
+    in_wrapper = 1;
+    
     // Ignore frees from bootstrap buffer
     if (ptr >= (void*)bootstrap_buffer && 
         ptr < (void*)(bootstrap_buffer + BOOTSTRAP_SIZE)) {
@@ -118,6 +152,6 @@ void free(void* ptr) {
     int len = snprintf(buf, sizeof(buf), "[FREE] ptr=%p\n", ptr);
     if (len > 0)
         send_alloc_event(buf, (size_t)len);
-    
     real_free(ptr);
+    in_wrapper = 0;
 }

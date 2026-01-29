@@ -26,12 +26,22 @@ $(OBJDIR):
 
 all: $(NAME)
 
-wrapper: tests/tests.c
+wrapper:
 	gcc -shared -fPIC -o utils/wrapper.so utils/wrapper.c -ldl
-	gcc -o tests/tests tests/tests.c
 
-tests: wrapper
-	LD_PRELOAD=./utils/wrapper.so ./tests/tests
+# Build instrumented binary from the hard-coded tests directory
+traceable:
+	./utils/run_instrumented.sh ./tests trace_tests -Wall -Wextra -g
+
+# Run the instrumented binary
+run_tests: traceable
+	./trace_tests
+
+
+# Remove TRACK_ASSIGN instrumentation from the hard-coded tests directory
+clean_trace:
+	@find ./tests -type f -name "*.c" -exec sed -i 's/TRACK_ASSIGN(\([^,]*\),\(.*\));/\1 =\2;/g' {} +
+	@echo "Reverted TRACK_ASSIGN back to regular assignments in ./tests"
 
 clean:
 		rm -f $(OBJDIR)/*.o
@@ -45,4 +55,4 @@ fclean: clean
 
 re: fclean wrapper all
 
-.PHONY: all wrapper tests clean fclean re
+.PHONY: all wrapper run_tests traceable clean_trace clean fclean re
